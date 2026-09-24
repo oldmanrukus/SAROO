@@ -11,6 +11,7 @@
 #include "main.h"
 #include "smpc.h"
 #include "vdp2.h"
+#include "stv_loader.h"
 
 /**********************************************************/
 
@@ -586,9 +587,10 @@ static void change_cover_layer(void)
 /**********************************************************/
 
 static int total_disc, total_page, page;
-static int sel_mode; // 0:game  1:binary
+static int sel_mode; // 0:game  1:binary  2:ST-V
 
 MENU_DESC sel_menu;
+MENU_DESC main_menu;
 
 static void fill_selmenu(void)
 {
@@ -609,11 +611,12 @@ static void fill_selmenu(void)
 			// xxxx/xxxx.cue
 			char *p = strchr(tmp, '/');
 			if(p) *p = 0;
-		}else{
+		}else if(sel_mode==1){
 			// xxxx@xxxx
 			char *p = strchr(tmp, '@');
 			if(p) *p = 0;
 		}
+		// sel_mode==2: ST-V game directory, shown as-is
 
 		add_menu_item(&sel_menu, tmp);
 	}
@@ -621,9 +624,22 @@ static void fill_selmenu(void)
 	int disp_page = (total_page)? page+1 : 0;
 	if(sel_mode==0){
 		sprintf(sel_menu.title, TT("选择游戏(%d/%d)"), disp_page, total_page);
+	}else if(sel_mode==2){
+		// Not in the language tables: ST-V is a proper noun.
+		snprintf(sel_menu.title, sizeof(sel_menu.title), "ST-V (%d/%d)", disp_page, total_page);
 	}else{
 		sprintf(sel_menu.title, TT("选择文件(%d/%d)"), disp_page, total_page);
 	}
+}
+
+
+// Name of the entry at this index in the MCU's IMGINFO list.
+static char *sel_name(int index)
+{
+	int *disc_path = (int *)(IMGINFO_ADDR+0x04);
+	char *path_str = (char*)(IMGINFO_ADDR);
+
+	return path_str + LE32(&disc_path[index]);
 }
 
 
@@ -748,6 +764,14 @@ static int sel_handle(int ctrl)
 				sprintf(buf, TT("游戏启动失败! %d"), retv);
 				menu_status(menu, buf);
 			}
+		}else if(sel_mode==2){
+			// ST-V: only returns if the ROM set could not be loaded.
+			menu_status(menu, "Loading ST-V ROMs ......");
+			retv = stv_launch(sel_name(index));
+
+			char buf[48];
+			snprintf(buf, sizeof(buf), "ST-V load failed! %d", retv);
+			menu_status(menu, buf);
 		}else{
 			menu_status(menu, TT("加载文件中......"));
 			retv = run_binary(index, 1);
@@ -770,7 +794,7 @@ static int sel_handle(int ctrl)
 
 			use_sys_load = 0;
 			my_cdplayer();
-		}else{
+		}else if(sel_mode==1){
 			menu_status(menu, TT("加载文件中......"));
 			cdblock_on(0);
 			retv = run_binary(index, 1);
@@ -818,6 +842,30 @@ void select_bins(void)
 	while(SS_CMD);
 
 	select_game();
+
+	SS_ARG = 0;
+	SS_CMD = SSCMD_LISTDISC;
+	while(SS_CMD);
+}
+
+
+/**********************************************************/
+
+
+// Lists the game directories under /SAROO/STV and launches the chosen one.
+// Restores the normal disc list afterwards, for when nothing was launched.
+void select_stv(void)
+{
+	SS_ARG = 0;
+	SS_CMD = SSCMD_LISTSTV;
+	while(SS_CMD);
+
+	if(SS_ARG){
+		// main_menu is what is on screen at this point.
+		menu_status(&main_menu, "No /SAROO/STV directory!");
+	}else{
+		select_game();
+	}
 
 	SS_ARG = 0;
 	SS_CMD = SSCMD_LISTDISC;
@@ -890,7 +938,12 @@ int menu_str_nr = sizeof(menu_str)/sizeof(char*);
 char *update_str = "固件升级";
 int update_index;
 
-MENU_DESC main_menu;
+// Appended after menu_str[] rather than added to it: the language tables in
+// language.c are fixed-size and keyed on the Chinese strings, and "ST-V" is a
+// proper noun that does not need translating.
+char *stv_str = "ST-V Arcade";
+int stv_index;
+
 
 
 int main_handle(int ctrl)
@@ -982,6 +1035,10 @@ int main_handle(int ctrl)
 		sci_init();
 		sci_shell();
 		return MENU_EXIT;
+	}else if(index==stv_index){
+		sel_mode = 2;
+		select_stv();
+		return MENU_RESTART;
 	}else if(index==update_index){
 		menu_status(&main_menu, TT("升级中,请勿断电..."));
 		SS_ARG = 0;
@@ -1025,6 +1082,12 @@ void menu_init(void)
 	for(i=0; i<menu_str_nr; i++){
 		add_menu_item(&main_menu, TT(menu_str[i]));
 	}
+
+	add_menu_item(&main_menu, stv_str);
+	stv_index = i;
+	i += 1;
+
+	update_index = -1;
 	if(check_update()){
 		add_menu_item(&main_menu, TT(update_str));
 		update_index = i;

@@ -24,6 +24,7 @@ OBJ	=	obj/crt0.o  \
 		obj/ubr_debug.o  \
 		obj/cdblock.o  \
 		obj/game_load.o  \
+		obj/stv_loader.o  \
 		obj/game_patch.o  \
 		obj/game_save.o  \
 		obj/language.o  \
@@ -48,7 +49,7 @@ $(EXE)	: $(OBJ)
 	cat tmp.bin font_cjk.bin >ssfirm.bin
 	rm -f tmp.bin
 
-$(OBJ): main.h smpc.h vdp2.h font_latin.h
+$(OBJ): main.h smpc.h vdp2.h font_latin.h stv_loader.h
 
 
 obj/%.o :	%.c

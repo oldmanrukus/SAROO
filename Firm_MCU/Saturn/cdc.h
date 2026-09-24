@@ -115,6 +115,7 @@
 #define SSCMD_SMEMS    0x000c
 #define SSCMD_STARTUP  0x000d
 #define SSCMD_SELECT   0x000e
+#define SSCMD_LISTSTV  0x000f
 
 
 #define MSF_TO_FAD(m,s,f) ((m * 4500) + (s * 75) + f)
@@ -374,6 +375,7 @@ void init_toc(void);
 char *get_category(int id);
 int list_bins(int show);
 int list_disc(int cid, int show);
+int list_stv(int show);
 int load_disc(int index);
 int load_pcm(char *fname);
 int unload_disc(void);
