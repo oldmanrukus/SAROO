@@ -146,7 +146,7 @@ int parse_cue(char *fname, u8 *ipbuf)
 			sprintk(full_path, "%s/%s", dir_name, tfile);
 
 			if(ipbuf){
-				// ï¿½ï¿½ï¿½ipbufï¿½ï¿½ï¿½Ú£ï¿½ï¿½ï¿½ï¿½ï¿½Î¶ï¿½ï¿½Ö»ï¿½ï¿½ï¿½IPï¿½ï¿½Ï¢ï¿½ï¿½ï¿½Úµï¿½Ò»ï¿½ï¿½FILEï¿½ï¿½ï¿½æ¡£
+				// Èç¹ûipbuf´æÔÚ£¬ÔòÒâÎ¶×ÅÖ»Ðè¶ÁIPÐÅÏ¢¡£ÔÚµÚÒ»¸öFILEÀïÃæ¡£
 				tk_fp = &track_fp[99];
 				retv = f_open(tk_fp, full_path, FA_READ);
 				if(retv){
@@ -395,66 +395,6 @@ int list_disc(int cid, int show)
 }
 
 
-/* Lists the game directories under /SAROO/STV into the same IMGINFO block the
- * disc and binary lists use, so the Saturn side can reuse its selection menu.
- * Returns -1 when there is no /SAROO/STV directory at all. */
-int list_stv(int show)
-{
-	FRESULT retv;
-	DIR dir;
-	FILINFO *info;
-
-	total_disc = 0;
-	pbptr = 0x2800;
-	memset(disc_path, 0x00, 0x23000-4);
-	*(int*)(IMGINFO_ADDR) = 0;
-
-	memset(&dir, 0, sizeof(dir));
-
-	retv = f_opendir(&dir, "/SAROO/STV");
-	if(retv)
-		return -1;
-
-	info = malloc(sizeof(FILINFO));
-	memset(info, 0, sizeof(*info));
-
-	while(1){
-		retv = f_readdir(&dir, info);
-		if(retv!=FR_OK || info->fname[0]==0)
-			break;
-		if(info->fname[0]=='.')
-			continue;
-
-		if(info->fattrib & AM_DIR){
-			disc_path[total_disc] = pbptr;
-			strcpy(path_str+pbptr, info->fname);
-			pbptr += strlen(info->fname)+1;
-
-			total_disc += 1;
-			*(int*)(IMGINFO_ADDR) = total_disc;
-		}
-	}
-
-	f_closedir(&dir);
-	free(info);
-
-	if(sort_mode){
-		qsort4(disc_path, total_disc, path_cmp);
-	}
-
-	printk("Total ST-V games: %d\n", total_disc);
-	if(show){
-		int i;
-		for(i=0; i<total_disc; i++){
-			printk(" %2d:  %s\n", i, path_str+disc_path[i]);
-		}
-		printk("\n");
-	}
-
-	return 0;
-}
-
-
 int find_disc(char *name)
 {
 	int i;
@@ -517,12 +457,12 @@ int find_cue_iso(char *dirname, char *outname)
 		}else{
 			char *p = strrchr(info->fname, '.');
 			if(strcasecmp(p, ".cue")==0){
-				// ï¿½ï¿½ï¿½ï¿½cue, Ö±ï¿½Ó·ï¿½ï¿½ï¿½.
+				// ¶Áµ½cue, Ö±½Ó·µ»Ø.
 				sprintk(outname, "%s/%s", dirname, info->fname);
 				type = 1;
 				break;
 			}else if(strcasecmp(p, ".iso")==0){
-				// ï¿½ï¿½ï¿½ï¿½iso, ï¿½ï¿½Òªï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ã»ï¿½ï¿½cue.
+				// ¶Áµ½iso, »¹Òª¼ÌÐø¿´ÓÐÃ»ÓÐcue.
 				sprintk(outname, "%s/%s", dirname, info->fname);
 				type = 2;
 			}

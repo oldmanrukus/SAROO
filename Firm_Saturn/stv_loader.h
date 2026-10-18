@@ -77,6 +77,12 @@ typedef struct {
 /* Look up a built-in ROM map by directory name. NULL if the game is unknown. */
 STV_GAME *stv_find_game(char *id);
 
+/* Fills the IMGINFO list the selection menu reads with the games found under
+ * /SAROO/STV, and returns how many there are. Uses only SSCMD_FILERD, so no
+ * MCU firmware change is needed. Overwrites the MCU's disc list, so the caller
+ * must reissue SSCMD_LISTDISC when it is done. */
+int stv_build_list(void);
+
 /* Load and run the game in /SAROO/STV/<id>. Only returns on failure, with a
  * negative STV_E_* code. On success the MCU mailbox and SAROO's own Saturn
  * code have been overwritten, so the only way back to the boot menu is a

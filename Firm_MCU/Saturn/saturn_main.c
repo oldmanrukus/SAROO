@@ -529,12 +529,6 @@ void ss_cmd_handle(void)
 		SS_ARG = retv;
 		SS_CMD = 0;
 		break;
-	case SSCMD_LISTSTV:
-		// 列出ST-V游戏目录
-		retv = list_stv(0);
-		SS_ARG = retv;
-		SS_CMD = 0;
-		break;
 	case SSCMD_LOADDISC:
 		// 装载镜像
 		retv = load_disc(SS_ARG);

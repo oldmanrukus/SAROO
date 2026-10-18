@@ -286,6 +286,149 @@ static STV_GAME *stv_get_rommap(char *id)
 
 
 /**********************************************************/
+/*
+ * Game list.
+ *
+ * Builds the IMGINFO list that the selection menu in main.c reads, using
+ * SSCMD_FILERD and nothing else, so ST-V support needs no MCU firmware change.
+ * That restriction is not cosmetic: the MCU's command dispatch does not clear
+ * SS_CMD for a command it does not recognise, so asking a stock MCU for a new
+ * listing command would hang the Saturn in its while(SS_CMD) wait.
+ *
+ * The list comes from /SAROO/STV/games.txt when that file exists -- one
+ * directory name per line -- and otherwise from the built-in table, keeping
+ * only the entries whose directory can actually be found.
+ *
+ * IMGINFO holds the MCU's disc list, so whoever calls this is responsible for
+ * reissuing SSCMD_LISTDISC afterwards. select_stv() in main.c does.
+ */
+
+#define STV_LIST_MAX      200
+#define IMGINFO_STR_BASE  0x2800    /* where the MCU starts packing strings */
+#define IMGINFO_SIZE      0x23000   /* IMGINFO_ADDR .. SYSINFO_ADDR */
+
+static int list_total;
+static int list_pbptr;
+
+
+static void stv_list_reset(void)
+{
+	list_total = 0;
+	list_pbptr = IMGINFO_STR_BASE;
+
+	/* The MCU is little-endian and the menu reads these with LE32(). */
+	LE32W((void*)IMGINFO_ADDR, 0);
+}
+
+
+static int stv_list_add(char *name)
+{
+	u32 *disc_path = (u32*)(IMGINFO_ADDR+4);
+	char *path_str = (char*)IMGINFO_ADDR;
+	int len = strlen(name);
+
+	if(list_total>=STV_LIST_MAX)
+		return -1;
+	if(list_pbptr+len+1 > IMGINFO_SIZE)
+		return -1;
+
+	LE32W(&disc_path[list_total], list_pbptr);
+	strcpy(path_str+list_pbptr, name);
+	list_pbptr += len+1;
+
+	list_total += 1;
+	LE32W((void*)IMGINFO_ADDR, list_total);
+
+	return 0;
+}
+
+
+/* Is /SAROO/STV/<id> there? Probed with a one byte read of rommap.txt and then
+ * of the map's first ROM, since there is no way to stat a directory from here. */
+static int stv_dir_exists(STV_GAME *game)
+{
+	char path[128];
+	void *buf = (void*)CT(rommap_buf);
+
+	snprintf(path, sizeof(path), "/SAROO/STV/%s/rommap.txt", game->id);
+	if(read_file(path, 0, 1, buf) >= 0)
+		return 1;
+
+	if(game->rom[0].name==NULL)
+		return 0;
+
+	snprintf(path, sizeof(path), "/SAROO/STV/%s/%s", game->id, game->rom[0].name);
+	return (read_file(path, 0, 1, buf) >= 0)? 1 : 0;
+}
+
+
+static int stv_list_from_file(void)
+{
+	char *buf = (char*)CT(rommap_buf);
+	char *p, *end;
+	int retv, n = 0;
+
+	retv = read_file("/SAROO/STV/games.txt", 0, ROMMAP_MAX-1, buf);
+	if(retv<=0)
+		return 0;
+	buf[retv] = 0;
+
+	p = buf;
+	end = buf + retv;
+
+	while(p<end){
+		char *line = p;
+		int len;
+
+		while(p<end && *p!='\n')
+			p++;
+		if(p<end)
+			*p++ = 0;
+		/* else: already terminated by buf[retv] = 0 above */
+
+		line = skip_blank(line);
+		len = strlen(line);
+		while(len>0 && (line[len-1]=='\r' || line[len-1]==' ' || line[len-1]=='\t'))
+			line[--len] = 0;
+
+		if(*line==0 || *line=='#')
+			continue;
+
+		if(stv_list_add(line))
+			break;
+		n += 1;
+	}
+
+	return n;
+}
+
+
+int stv_build_list(void)
+{
+	int n;
+
+	stv_list_reset();
+
+	n = stv_list_from_file();
+	if(n>0){
+		printk("ST-V: %d game(s) from games.txt\n", n);
+		return n;
+	}
+
+	for(int i=0; i<STV_GAME_NR; i++){
+		if(stv_dir_exists(&stv_games[i])){
+			if(stv_list_add(stv_games[i].id))
+				break;
+			n += 1;
+		}
+	}
+	printk("ST-V: %d built-in game(s) found under /SAROO/STV\n", n);
+
+	return n;
+}
+
+
+/**********************************************************/
 /* ROM loading */
 
 

@@ -9,6 +9,26 @@ not been validated on hardware.** Inputs are not yet wired to a running game.
 Read "What is not done" before expecting a game to play.
 
 
+## Installing
+
+The Saturn-side firmware is a plain file on the SD card: the MCU loads
+`/SAROO/ssfirm.bin` into cart space at boot (`Firm_MCU/Saturn/saturn_main.c`,
+`FIRM_ADDR`). So installing is a copy:
+
+```
+cp Firm_Saturn/ssfirm.bin  <sdcard>/SAROO/ssfirm.bin
+```
+
+Keep a copy of the old `ssfirm.bin` first — restoring it is the way back.
+
+**No MCU firmware update is needed.** The ST-V code deliberately uses only
+`SSCMD_FILERD`, a command every MCU build already implements. This is not just
+convenience: the MCU's command dispatch does not clear `SS_CMD` for a command it
+does not recognise (`saturn_main.c`, the `default:` case), so a new listing
+command would hang the Saturn in its `while(SS_CMD)` wait on any MCU firmware
+that predated it. Game enumeration is therefore done Saturn-side.
+
+
 ## Why the ST-V BIOS is not used
 
 ST-V is Saturn-derived: same SH-2 pair, SCU, VDP1, VDP2, SCSP and SMPC. The two
@@ -107,6 +127,24 @@ One directory per game under `/SAROO/STV`:
 
 The directory name is what appears in the menu and what selects the built-in ROM
 map. Pick "ST-V Arcade" in the boot menu to list them.
+
+There is no way to list a directory from the Saturn side, so the menu is built
+one of two ways:
+
+* If `/SAROO/STV/games.txt` exists, it is the list — one directory name per
+  line, `#` for comments:
+
+  ```
+  # one game directory per line
+  Diehard
+  Dynamite
+  ```
+
+* Otherwise each built-in entry is probed (a one-byte read of its `rommap.txt`,
+  then of its first ROM) and the ones that are present are listed.
+
+So a game whose directory name is not in the built-in table needs a line in
+`games.txt`. Names there are listed as given, without probing.
 
 
 ## ROM maps
@@ -229,7 +267,6 @@ Nothing emulates it, so anything a game expects to read back from it is absent.
 |---|---|
 | `Firm_Saturn/stv_loader.c`, `.h` | the loader |
 | `Firm_Saturn/main.c` | menu entry, `select_stv()`, `sel_mode == 2` |
-| `Firm_Saturn/main.h` | `SSCMD_LISTSTV` |
-| `Firm_MCU/Saturn/cdimg.c` | `list_stv()`, enumerates `/SAROO/STV` |
-| `Firm_MCU/Saturn/saturn_main.c` | `SSCMD_LISTSTV` dispatch |
-| `Firm_MCU/Saturn/cdc.h` | `SSCMD_LISTSTV`, `list_stv()` |
+| `Firm_Saturn/main.h` | `LE32W()` declaration |
+
+Nothing under `Firm_MCU/` is touched.

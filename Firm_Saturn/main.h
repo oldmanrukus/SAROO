@@ -49,7 +49,6 @@ typedef unsigned long long u64;
 #define SSCMD_SMEMS    0x000c
 #define SSCMD_STARTUP  0x000d
 #define SSCMD_SELECT   0x000e
-#define SSCMD_LISTSTV  0x000f
 
 #define SELECT_ENTER   0x8000
 #define SELECT_EXIT    0x4000
@@ -327,6 +326,7 @@ int write_file(char *name, int offset, int size, void *buf);
 
 u32 BE32(void *ptr);
 u32 LE32(void *ptr);
+void LE32W(void *ptr, u32 val);
 
 u32 get_build_date(void);
 

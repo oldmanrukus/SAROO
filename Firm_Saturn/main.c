@@ -856,17 +856,15 @@ void select_bins(void)
 // Restores the normal disc list afterwards, for when nothing was launched.
 void select_stv(void)
 {
-	SS_ARG = 0;
-	SS_CMD = SSCMD_LISTSTV;
-	while(SS_CMD);
-
-	if(SS_ARG){
+	// Built Saturn-side rather than by the MCU: see stv_build_list().
+	if(stv_build_list()<=0){
 		// main_menu is what is on screen at this point.
-		menu_status(&main_menu, "No /SAROO/STV directory!");
+		menu_status(&main_menu, "No games found in /SAROO/STV!");
 	}else{
 		select_game();
 	}
 
+	// stv_build_list() overwrote the MCU's disc list.
 	SS_ARG = 0;
 	SS_CMD = SSCMD_LISTDISC;
 	while(SS_CMD);
